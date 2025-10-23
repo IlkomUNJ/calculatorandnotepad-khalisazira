@@ -30,18 +30,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.projects.ui.theme.CalculatorTheme
 
-// --- Nested Routes for Notepad Feature ---
 object NotepadRoutes {
     const val NOTE_LIST = "note_list"
     const val NOTE_DETAIL = "note_detail"
 }
 
-// ----------------------------------------------------------------------
-// --- Main Composablesss (Source of ViewModel) ---
-// ----------------------------------------------------------------------
 @Composable
 fun NotepadScreen(
-    viewModel: NotepadViewModel = viewModel() // ViewModel is initialized ONCE here
+    viewModel: NotepadViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
     val notepadNavController = rememberNavController()
@@ -62,18 +58,15 @@ fun NotepadScreen(
                         viewModel.addNewNote()
                         notepadNavController.navigate(NotepadRoutes.NOTE_DETAIL)
                     },
-                    onTogglePin = viewModel::togglePinNote
                 )
             }
             composable(NotepadRoutes.NOTE_DETAIL) {
                 state.selectedNoteId?.let { noteId ->
-                    // CRITICAL FIX: Use key to stabilize navigation to detail screen
                     key(noteId) {
                         NoteDetailScreen(
                             state = state,
                             viewModel = viewModel,
                             onBackClick = {
-                                // CRITICAL FIX: Ensure save/cleanup happens safely before navigation
                                 viewModel.clearSelectedNote()
                                 notepadNavController.popBackStack()
                             },
@@ -83,9 +76,7 @@ fun NotepadScreen(
                             }
                         )
                     }
-                }
-                // FALLBACK: If selectedNoteId is null here (due to a bad state/crash), immediately navigate back.
-                if (state.selectedNoteId == null) {
+                } ?: run {
                     notepadNavController.popBackStack(NotepadRoutes.NOTE_LIST, inclusive = true)
                 }
             }
@@ -94,16 +85,12 @@ fun NotepadScreen(
 }
 
 
-// ----------------------------------------------------------------------
-// --- 1. Note List UI (Cleaned) ---
-// ----------------------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteListScreen(
     state: NotepadState,
     onNoteClick: (String) -> Unit,
     onAddNewNoteClick: () -> Unit,
-    onTogglePin: (String) -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -113,7 +100,7 @@ fun NoteListScreen(
                     IconButton(onClick = onAddNewNoteClick) {
                         Icon(Icons.AutoMirrored.Filled.NoteAdd, contentDescription = "New Note")
                     }
-                    IconButton(onClick = { /* Handle search action */ }) {
+                    IconButton(onClick = { }) {
                         Icon(Icons.Filled.Search, contentDescription = "Search")
                     }
                 }
@@ -137,7 +124,6 @@ fun NoteListScreen(
                 NoteListItem(
                     note = note,
                     onClick = { onNoteClick(note.id) },
-                    onTogglePin = { onTogglePin(note.id) }
                 )
             }
             item { Spacer(modifier = Modifier.height(60.dp)) }
@@ -150,7 +136,6 @@ fun NoteListScreen(
 fun NoteListItem(
     note: Note,
     onClick: () -> Unit,
-    onTogglePin: () -> Unit
 ) {
     ElevatedCard(
         modifier = Modifier
@@ -190,21 +175,11 @@ fun NoteListItem(
                     modifier = Modifier.padding(top = 8.dp)
                 )
             }
-            IconButton(onClick = onTogglePin) {
-                Icon(
-                    imageVector = if (note.isPinned) Icons.Filled.Star else Icons.Filled.StarBorder,
-                    contentDescription = if (note.isPinned) "Unpin Note" else "Pin Note",
-                    tint = if (note.isPinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
         }
     }
 }
 
 
-// ----------------------------------------------------------------------
-// --- 2. Note Detail UI (CRASH-PROOFED) ---
-// ----------------------------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteDetailScreen(
@@ -213,52 +188,38 @@ fun NoteDetailScreen(
     onBackClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    // CRITICAL CRASH FIX: Guard against null data during navigation
     val currentNote = state.currentNote
     if (currentNote == null) {
-        onBackClick() // Call back to exit gracefully if state is invalid
+        onBackClick()
         return
     }
 
     Scaffold(
         topBar = {
             Column {
-                // Primary Action Bar
                 TopAppBar(
-                    title = { /* Empty Title */ },
+                    title = { },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     },
                     actions = {
-                        // Save (Activity 2 requirement)
                         IconButton(onClick = viewModel::saveNote) {
                             Icon(Icons.Filled.Save, contentDescription = "Save")
                         }
-                        // Undo/Redo (Document History)
                         IconButton(onClick = viewModel::undo) {
                             Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
                         }
                         IconButton(onClick = viewModel::redo) {
                             Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
                         }
-                        // Pin (Metadata Action)
-                        IconButton(onClick = { viewModel.togglePinNote(currentNote.id) }) {
-                            Icon(
-                                imageVector = Icons.Filled.PushPin,
-                                contentDescription = if (currentNote.isPinned) "Unpin" else "Pin",
-                                tint = if (currentNote.isPinned) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = 0.6f)
-                            )
-                        }
-                        // Delete (Activity 2 requirement)
                         IconButton(onClick = onDeleteClick) {
                             Icon(Icons.Filled.Delete, contentDescription = "Delete Note")
                         }
                     }
                 )
 
-                // Title Area
                 Box(modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -285,7 +246,6 @@ fun NoteDetailScreen(
                     )
                 }
 
-                // Secondary Controls: Style, Copy/Paste, and Size
                 NotepadControls(
                     state = state,
                     viewModel = viewModel,
@@ -298,11 +258,9 @@ fun NoteDetailScreen(
         },
         containerColor = MaterialTheme.colorScheme.surface
     ) { paddingValues ->
-        // --- Note Content Input Area ---
         BasicTextField(
             value = state.currentNoteContent,
             onValueChange = viewModel::onNoteContentChanged,
-            // Apply dynamic style and size
             textStyle = TextStyle(
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = state.currentNoteFontSize,
@@ -328,7 +286,6 @@ fun NoteDetailScreen(
     }
 }
 
-// --- Notepad Controls ---
 @Composable
 private fun NotepadControls(
     state: NotepadState,
@@ -345,306 +302,6 @@ private fun NotepadControls(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.weight(1f, fill = false)
         ) {
-            // 1. Style Toggles (bold, italic, normal)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
             item {
                 StyleToggleButton(
                     icon = Icons.Filled.FormatBold,
@@ -670,12 +327,10 @@ private fun NotepadControls(
                 }
             }
 
-            // 2. Separator
             item { CustomVerticalDivider(modifier = Modifier
                 .padding(horizontal = 4.dp)
                 .height(24.dp)) }
 
-            // 3. Clipboard Actions (Cut, Copy, Paste)
             item {
                 IconButton(onClick = viewModel::cut) {
                     Icon(Icons.Filled.ContentCut, contentDescription = "Cut")
@@ -693,12 +348,10 @@ private fun NotepadControls(
             }
         }
 
-        // RIGHT SECTION: Font Size Controls (Change size requirement)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End
         ) {
-            // Separator before Size Controls
             CustomVerticalDivider(modifier = Modifier
                 .padding(horizontal = 8.dp)
                 .fillMaxHeight(0.8f))
@@ -749,7 +402,6 @@ private fun StyleToggleButton(
 
 @Composable
 fun CustomVerticalDivider(modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.outlineVariant) {
-    // Replaced deprecated Divider with HorizontalDivider used vertically
     HorizontalDivider(
         color = color,
         modifier = modifier
