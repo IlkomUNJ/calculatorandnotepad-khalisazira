@@ -22,8 +22,6 @@ class NotepadViewModel : ViewModel() {
         return calendar.time
     }
 
-    // --- Note List Operations ---
-
     fun addNewNote() {
         val newNote = Note(title = "", content = "")
         _state.update {
@@ -39,19 +37,21 @@ class NotepadViewModel : ViewModel() {
         }
     }
 
-    // CRASH FIX: Simplified selectNote for thread safety and stability.
     fun selectNote(noteId: String) {
-        _state.update {
-            val note = it.notes.firstOrNull { n -> n.id == noteId }
+        _state.update { currentState ->
+            val note = currentState.notes.firstOrNull { n -> n.id == noteId }
 
             if (note == null) {
-                return@update it
+                return@update currentState.copy(selectedNoteId = null)
             }
 
-            it.copy(
+            currentState.copy(
                 selectedNoteId = noteId,
                 currentNoteTitle = note.title,
-                currentNoteContent = note.content
+                currentNoteContent = note.content,
+                currentNoteFontSize = 16.sp,
+                currentNoteIsBold = false,
+                currentNoteIsItalic = false
             )
         }
     }
@@ -66,19 +66,7 @@ class NotepadViewModel : ViewModel() {
                         lastModifiedTime = Date()
                     )
                 } else note
-            }.sortedWith(compareByDescending<Note> { it.isPinned }.thenByDescending { it.lastModifiedTime })
-
-            currentState.copy(notes = updatedNotes)
-        }
-    }
-
-    fun togglePinNote(noteId: String) {
-        _state.update { currentState ->
-            val updatedNotes = currentState.notes.map { note ->
-                if (note.id == noteId) {
-                    note.copy(isPinned = !note.isPinned)
-                } else note
-            }.sortedWith(compareByDescending<Note> { it.isPinned }.thenByDescending { it.lastModifiedTime })
+            }.sortedByDescending { it.lastModifiedTime }
 
             currentState.copy(notes = updatedNotes)
         }
@@ -100,8 +88,6 @@ class NotepadViewModel : ViewModel() {
         _state.update { it.copy(selectedNoteId = null) }
     }
 
-    // --- Text Editing Operations ---
-
     fun onNoteTitleChanged(newTitle: String) = _state.update { it.copy(currentNoteTitle = newTitle) }
     fun onNoteContentChanged(newContent: String) = _state.update { it.copy(currentNoteContent = newContent) }
     fun toggleBold() = _state.update { it.copy(currentNoteIsBold = !it.currentNoteIsBold) }
@@ -115,33 +101,33 @@ class NotepadViewModel : ViewModel() {
     }
     fun resetStyle() = _state.update { it.copy(currentNoteIsBold = false, currentNoteIsItalic = false) }
 
-    // --- Stub Functions --- (For Cut/Copy/Paste/Save)
-    fun saveNote() { /* Implementation stub */ }
-    fun undo() { /* Implementation stub */ }
-    fun redo() { /* Implementation stub */ }
-    fun cut() { /* Implementation stub */ }
-    fun copy() { /* Implementation stub */ }
-    fun paste() { /* Implementation stub */ }
+    fun saveNote() { }
+    fun undo() { }
+    fun redo() { }
+    fun cut() { }
+    fun copy() { }
+    fun paste() { }
 
 
     private fun getSampleNotes(): List<Note> {
+        val loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+
         return listOf(
             Note(
-                title = "to-do list",
-                content = "Buy groceries, call dentist.",
+                title = "Note 1",
+                content = loremIpsum,
                 lastModifiedTime = getOffsetDate(-10, Calendar.MINUTE)
             ),
             Note(
-                title = "don't forget",
-                content = "Pay bills by Friday.",
-                lastModifiedTime = getOffsetDate(-30, Calendar.MINUTE),
-                isPinned = true
+                title = "Note 2",
+                content = loremIpsum,
+                lastModifiedTime = getOffsetDate(-30, Calendar.MINUTE)
             ),
             Note(
-                title = "office adress",
-                content = "123 Main St, Suite 400",
+                title = "Note 3",
+                content = loremIpsum,
                 lastModifiedTime = getOffsetDate(-1, Calendar.HOUR_OF_DAY)
             ),
-        ).sortedWith(compareByDescending<Note> { it.isPinned }.thenByDescending { it.lastModifiedTime })
+        ).sortedByDescending { it.lastModifiedTime }
     }
 }
