@@ -7,25 +7,18 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.UUID
 
-/**
- * Represents a single note entry.
- */
 data class Note(
     val id: String = UUID.randomUUID().toString(),
-    var title: String = "",       // Ensure default value
-    var content: String = "",     // Ensure default value
+    var title: String = "",
+    var content: String = "",
     val creationTime: Date = Date(),
     var lastModifiedTime: Date = Date(),
-    var isPinned: Boolean = false
 ) {
     private val formatter = SimpleDateFormat("MM/dd/yy HH:mm", Locale.getDefault())
     val formattedDate: String
         get() = formatter.format(lastModifiedTime)
 }
 
-/**
- * Represents the overall state of the Notepad feature.
- */
 data class NotepadState(
     val notes: List<Note> = emptyList(),
     val selectedNoteId: String? = null,
